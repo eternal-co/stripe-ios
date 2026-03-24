@@ -7,6 +7,8 @@
 
 import Foundation
 
+@_spi(STP) import StripeCore
+
 class PaymentMethodWithLinkDetails: NSObject, STPAPIResponseDecodable {
     let paymentMethod: STPPaymentMethod
     let isLinkOrigin: Bool
@@ -63,13 +65,10 @@ class PaymentMethodWithLinkDetails: NSObject, STPAPIResponseDecodable {
     }
 }
 
-private extension ConsumerPaymentDetails.DetailsType {
+private extension ParsedEnum where E == ConsumerPaymentDetails.DetailsType {
+    // TODO(jkelle): We'll be able to render these with the `display` metadata
+    // coming in https://docs.google.com/document/d/1x834BjHYro9-bDoAVaqgHm7LDPDwzpk4z_5BvxYwwtU/
     var isUnsupportedAsSavedPaymentMethod: Bool {
-        switch self {
-        case .card, .bankAccount:
-            false
-        case .unparsable:
-            true
-        }
+        isUnparsed
     }
 }

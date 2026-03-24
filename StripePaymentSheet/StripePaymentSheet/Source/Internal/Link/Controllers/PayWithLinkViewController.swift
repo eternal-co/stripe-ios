@@ -114,15 +114,19 @@ final class PayWithLinkViewController: BottomSheetViewController {
 
         /// Returns the supported payment details types for the current Link account, filtered by the supportedPaymentMethodTypes.
         /// Returns [.card] as fallback if no types are supported after filtering.
-        func getSupportedPaymentDetailsTypes(linkAccount: PaymentSheetLinkAccount) -> Set<ConsumerPaymentDetails.DetailsType> {
+        func getSupportedPaymentDetailsTypes(linkAccount: PaymentSheetLinkAccount) -> Set<ParsedEnum<ConsumerPaymentDetails.DetailsType>> {
             let allSupportedPaymentDetailsTypes = linkAccount.supportedPaymentDetailsTypes(for: elementsSession)
+            
+            // TODO(jkelle): Remove this line once we want to render PMs we don't have explicit support for.
+            // This will be when the `display` metadata is sent in the payment_details/list response
+            // https://docs.google.com/document/d/1x834BjHYro9-bDoAVaqgHm7LDPDwzpk4z_5BvxYwwtU
             let filteredSupportedPaymentDetailsTypes = allSupportedPaymentDetailsTypes.intersection(supportedPaymentMethodTypes.detailsTypes)
 
             if !filteredSupportedPaymentDetailsTypes.isEmpty {
                 return filteredSupportedPaymentDetailsTypes
             } else {
                 // Card is the default payment method type when no other type is available.
-                return [.card]
+                return [ParsedEnum(.card)]
             }
         }
 
@@ -502,7 +506,7 @@ private extension PayWithLinkViewController {
         if paymentDetails.isEmpty {
             // Check if only bank accounts are supported - if so, launch Financial Connections directly
             let supportedTypes = context.getSupportedPaymentDetailsTypes(linkAccount: linkAccount)
-            if supportedTypes == [.bankAccount] {
+            if supportedTypes == [ParsedEnum(.bankAccount)] {
                 startFinancialConnections { [weak self] result in
                     guard let self else { return }
                     switch result {
@@ -872,8 +876,8 @@ extension PayWithLinkViewController: PaymentSheetLinkAccountDelegate {
 }
 
 // Used to get deterministic ordering
-extension Set where Element == ConsumerPaymentDetails.DetailsType {
-    func toSortedArray() -> [ConsumerPaymentDetails.DetailsType] {
+extension Set where Element == ParsedEnum<ConsumerPaymentDetails.DetailsType> {
+    func toSortedArray() -> [ParsedEnum<ConsumerPaymentDetails.DetailsType>] {
         return self.sorted { lhs, rhs in
             lhs.rawValue.localizedCaseInsensitiveCompare(rhs.rawValue) == .orderedAscending
         }
