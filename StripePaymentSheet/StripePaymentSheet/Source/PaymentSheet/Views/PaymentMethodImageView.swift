@@ -100,10 +100,14 @@ class PaymentMethodImageView: UIImageView {
                 let image = try await DownloadManager.sharedManager.downloadImage(url: url)
                 guard !Task.isCancelled else { return }
                 let postProcessedImage = postProcess?(image) ?? image
-                self?.setImage(postProcessedImage)
+                await MainActor.run {
+                    self?.setImage(postProcessedImage)
+                }
             } catch {
                 guard !Task.isCancelled else { return }
-                self?.setImage(fallback)
+                await MainActor.run {
+                    self?.setImage(fallback)
+                }
             }
         }
     }

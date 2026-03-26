@@ -26,12 +26,12 @@ struct ElementsCustomer: Equatable, Hashable {
             return nil
         }
 
+        let cardArt = Self.parseCardArt(from: response)
         let paymentMethods = Self.parsePaymentMethods(
             from: response,
-            enableLinkInSPM: enableLinkInSPM
+            enableLinkInSPM: enableLinkInSPM,
+            cardArt: cardArt
         )
-        let cardArt = Self.parseCardArt(from: response)
-        addCardArt(to: paymentMethods, cardArt: cardArt)
 
         // Required fields
         guard let paymentMethods,
@@ -53,7 +53,7 @@ struct ElementsCustomer: Equatable, Hashable {
         )
     }
 
-    private static func parsePaymentMethods(from response: [AnyHashable: Any], enableLinkInSPM: Bool) -> [STPPaymentMethod]? {
+    private static func parsePaymentMethods(from response: [AnyHashable: Any], enableLinkInSPM: Bool, cardArt: [STPPaymentMethodCardArt]?) -> [STPPaymentMethod]? {
         guard let paymentMethodsArray = selectPaymentMethods(from: response, enableLinkInSPM: enableLinkInSPM) else {
             return nil
         }
@@ -68,11 +68,13 @@ struct ElementsCustomer: Equatable, Hashable {
                     } else {
                         paymentMethod.isLinkPassthroughMode = paymentMethodWithLinkDetails.isLinkOrigin
                     }
+                    addCardArt(to: paymentMethod, cardArt: cardArt)
                     paymentMethods.append(paymentMethod)
                 }
             } else {
                 if let paymentMethod = STPPaymentMethod.decodedObject(fromAPIResponse: json) {
                     paymentMethod.isLinkPassthroughMode = paymentMethod.card?.wallet?.type == .link
+                    addCardArt(to: paymentMethod, cardArt: cardArt)
                     paymentMethods.append(paymentMethod)
                 }
             }
@@ -104,17 +106,14 @@ struct ElementsCustomer: Equatable, Hashable {
         return cardArtArray
     }
 
-    private static func addCardArt(to paymentMethods: [STPPaymentMethod]?, cardArt: [STPPaymentMethodCardArt]?) {
-        guard let cardArt, let paymentMethods else {
+    private static func addCardArt(to paymentMethod: STPPaymentMethod, cardArt: [STPPaymentMethodCardArt]?) {
+        guard let cardArt,
+              paymentMethod.type == .card,
+              let card = paymentMethod.card else {
             return
         }
-        for paymentMethod in paymentMethods {
-            guard paymentMethod.type == .card, let card = paymentMethod.card else {
-                continue
-            }
-            if let matchingArt = cardArt.first(where: { $0.paymentMethod == paymentMethod.stripeId }) {
-                card.cardArt = matchingArt
-            }
+        if let matchingArt = cardArt.first(where: { $0.paymentMethod == paymentMethod.stripeId }) {
+            card.cardArt = matchingArt
         }
     }
 
