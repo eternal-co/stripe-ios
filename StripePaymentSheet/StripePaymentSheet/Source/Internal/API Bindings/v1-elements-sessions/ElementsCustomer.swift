@@ -30,6 +30,8 @@ struct ElementsCustomer: Equatable, Hashable {
             from: response,
             enableLinkInSPM: enableLinkInSPM
         )
+        let cardArt = Self.parseCardArt(from: response)
+        addCardArt(to: paymentMethods, cardArt: cardArt)
 
         // Required fields
         guard let paymentMethods,
@@ -87,6 +89,33 @@ struct ElementsCustomer: Equatable, Hashable {
             paymentMethodsArray = response["payment_methods"] as? [[AnyHashable: Any]]
         }
         return paymentMethodsArray
+    }
+
+    private static func parseCardArt(from response: [AnyHashable: Any]) -> [STPPaymentMethodCardArt]? {
+        guard let cardArtArrayResponse = response["card_art"] as? [[AnyHashable: Any]] else {
+            return nil
+        }
+        var cardArtArray: [STPPaymentMethodCardArt] = []
+        for cardArt in cardArtArrayResponse {
+            if let decodedCardArt = STPPaymentMethodCardArt.decodedObject(fromAPIResponse: cardArt) {
+                cardArtArray.append(decodedCardArt)
+            }
+        }
+        return cardArtArray
+    }
+
+    private static func addCardArt(to paymentMethods: [STPPaymentMethod]?, cardArt: [STPPaymentMethodCardArt]?) {
+        guard let cardArt, let paymentMethods else {
+            return
+        }
+        for paymentMethod in paymentMethods {
+            guard paymentMethod.type == .card, let card = paymentMethod.card else {
+                continue
+            }
+            if let matchingArt = cardArt.first(where: { $0.paymentMethod == paymentMethod.stripeId }) {
+                card.cardArt = matchingArt
+            }
+        }
     }
 
     func getDefaultPaymentMethod() -> STPPaymentMethod? {

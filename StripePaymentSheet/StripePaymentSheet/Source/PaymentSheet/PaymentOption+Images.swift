@@ -165,7 +165,7 @@ extension STPPaymentMethod {
 extension STPPaymentMethod {
     /// Returns the card art CDN URL if this is a card payment method with card art available.
     func cardArtURL(height: Int) -> URL? {
-        return card?.cardArt?.artImage.stripeCDNURL(height: height)
+        return card?.cardArt?.url?.stripeCDNURL(height: height)
     }
 }
 
