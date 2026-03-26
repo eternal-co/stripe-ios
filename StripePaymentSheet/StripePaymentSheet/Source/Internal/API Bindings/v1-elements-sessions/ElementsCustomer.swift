@@ -26,11 +26,9 @@ struct ElementsCustomer: Equatable, Hashable {
             return nil
         }
 
-        let cardArt = Self.parseCardArt(from: response)
         let paymentMethods = Self.parsePaymentMethods(
             from: response,
-            enableLinkInSPM: enableLinkInSPM,
-            cardArt: cardArt
+            enableLinkInSPM: enableLinkInSPM
         )
 
         // Required fields
@@ -53,9 +51,18 @@ struct ElementsCustomer: Equatable, Hashable {
         )
     }
 
-    private static func parsePaymentMethods(from response: [AnyHashable: Any], enableLinkInSPM: Bool, cardArt: [STPPaymentMethodCardArt]?) -> [STPPaymentMethod]? {
-        guard let paymentMethodsArray = selectPaymentMethods(from: response, enableLinkInSPM: enableLinkInSPM) else {
+    private static func parsePaymentMethods(from response: [AnyHashable: Any], enableLinkInSPM: Bool) -> [STPPaymentMethod]? {
+        guard var paymentMethodsArray = selectPaymentMethods(from: response, enableLinkInSPM: enableLinkInSPM) else {
             return nil
+        }
+
+        // Merge card art into each payment method's JSON before deserialization
+        if let cardArtArray = response["card_art"] as? [[AnyHashable: Any]] {
+            paymentMethodsArray = mergeCardArtIntoPaymentMethods(
+                paymentMethods: paymentMethodsArray,
+                cardArt: cardArtArray,
+                enableLinkInSPM: enableLinkInSPM
+            )
         }
 
         var paymentMethods: [STPPaymentMethod] = []
@@ -68,13 +75,11 @@ struct ElementsCustomer: Equatable, Hashable {
                     } else {
                         paymentMethod.isLinkPassthroughMode = paymentMethodWithLinkDetails.isLinkOrigin
                     }
-                    addCardArt(to: paymentMethod, cardArt: cardArt)
                     paymentMethods.append(paymentMethod)
                 }
             } else {
                 if let paymentMethod = STPPaymentMethod.decodedObject(fromAPIResponse: json) {
                     paymentMethod.isLinkPassthroughMode = paymentMethod.card?.wallet?.type == .link
-                    addCardArt(to: paymentMethod, cardArt: cardArt)
                     paymentMethods.append(paymentMethod)
                 }
             }
@@ -93,28 +98,50 @@ struct ElementsCustomer: Equatable, Hashable {
         return paymentMethodsArray
     }
 
-    private static func parseCardArt(from response: [AnyHashable: Any]) -> [STPPaymentMethodCardArt]? {
-        guard let cardArtArrayResponse = response["card_art"] as? [[AnyHashable: Any]] else {
-            return nil
-        }
-        var cardArtArray: [STPPaymentMethodCardArt] = []
-        for cardArt in cardArtArrayResponse {
-            if let decodedCardArt = STPPaymentMethodCardArt.decodedObject(fromAPIResponse: cardArt) {
-                cardArtArray.append(decodedCardArt)
+    /// Merges card art data into each payment method's "card" dictionary so that
+    /// `STPPaymentMethodCard.decodedObject(fromAPIResponse:)` can parse it during normal deserialization.
+    private static func mergeCardArtIntoPaymentMethods(
+        paymentMethods: [[AnyHashable: Any]],
+        cardArt: [[AnyHashable: Any]],
+        enableLinkInSPM: Bool
+    ) -> [[AnyHashable: Any]] {
+        // Build a lookup from payment method ID -> card art response
+        var artByPaymentMethodId: [String: [AnyHashable: Any]] = [:]
+        for art in cardArt {
+            if let pmId = art["payment_method"] as? String {
+                artByPaymentMethodId[pmId] = art
             }
         }
-        return cardArtArray
+
+        // Nest each card art entry into its payment method's "card" dictionary.
+        var result: [[AnyHashable: Any]] = []
+        for var entry in paymentMethods {
+            if enableLinkInSPM {
+                // Link-details wrapper: { "payment_method": { "id": ..., "card": ... }, ... }
+                if var nestedPM = entry["payment_method"] as? [AnyHashable: Any] {
+                    mergeCardArt(into: &nestedPM, artByPaymentMethodId: artByPaymentMethodId)
+                    entry["payment_method"] = nestedPM
+                }
+            } else {
+                // Flat format: { "id": ..., "card": ... }
+                mergeCardArt(into: &entry, artByPaymentMethodId: artByPaymentMethodId)
+            }
+            result.append(entry)
+        }
+        return result
     }
 
-    private static func addCardArt(to paymentMethod: STPPaymentMethod, cardArt: [STPPaymentMethodCardArt]?) {
-        guard let cardArt,
-              paymentMethod.type == .card,
-              let card = paymentMethod.card else {
+    private static func mergeCardArt(
+        into paymentMethod: inout [AnyHashable: Any],
+        artByPaymentMethodId: [String: [AnyHashable: Any]]
+    ) {
+        guard let pmId = paymentMethod["id"] as? String,
+              let art = artByPaymentMethodId[pmId],
+              var card = paymentMethod["card"] as? [AnyHashable: Any] else {
             return
         }
-        if let matchingArt = cardArt.first(where: { $0.paymentMethod == paymentMethod.stripeId }) {
-            card.cardArt = matchingArt
-        }
+        card["card_art"] = art
+        paymentMethod["card"] = card
     }
 
     func getDefaultPaymentMethod() -> STPPaymentMethod? {
