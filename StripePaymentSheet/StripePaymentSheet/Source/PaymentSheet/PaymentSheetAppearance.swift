@@ -90,7 +90,7 @@ public extension PaymentSheet {
         }
 
         /// Flag for enabling card art. This flag will be removed prior to launching
-        @_spi(CardArtPreview)
+        @_spi(STP)
         public var cardArtEnabled: Bool = false
 
         /// Describes the style of navigation bar style
