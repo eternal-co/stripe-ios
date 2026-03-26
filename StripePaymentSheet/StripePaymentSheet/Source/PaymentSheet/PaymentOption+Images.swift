@@ -327,7 +327,7 @@ extension UIImage {
 }
 
 extension URL {
-    func stripeCDNURL(height: Int, dpr: Int = 4) -> URL? {
+    func stripeCDNURL(height: Int, dpr: Int = 3) -> URL? {
         return URL(string: "https://img.stripecdn.com/cdn-cgi/image/format=auto,height=\(height),dpr=\(dpr)/\(self.absoluteString)")
     }
 }
