@@ -176,18 +176,20 @@ struct PaymentSheetTestPlayground: View {
                                 }
                             }
                         }
-                        SearchableView(searchableName: "Payment Method Options", searchText: $searchText) {
-                            VStack {
-                                HStack {
-                                    Text("Payment Method Options")
-                                        .font(.subheadline)
-                                    Spacer()
-                                    Button {
-                                        playgroundController.paymentMethodOptionsSetupFutureUsageSettingsTapped()
-                                    } label: {
-                                        Text("SetupFutureUsage")
-                                            .font(.callout.smallCaps())
-                                    }.buttonStyle(.bordered)
+                        if playgroundController.settings.integrationType != .checkoutSession {
+                            SearchableView(searchableName: "Payment Method Options", searchText: $searchText) {
+                                VStack {
+                                    HStack {
+                                        Text("Payment Method Options")
+                                            .font(.subheadline)
+                                        Spacer()
+                                        Button {
+                                            playgroundController.paymentMethodOptionsSetupFutureUsageSettingsTapped()
+                                        } label: {
+                                            Text("SetupFutureUsage")
+                                                .font(.callout.smallCaps())
+                                        }.buttonStyle(.bordered)
+                                    }
                                 }
                             }
                         }
@@ -265,6 +267,48 @@ struct PaymentSheetTestPlayground: View {
                                     SearchableSettingView(setting: $playgroundController.settings.formSheetAction, searchText: $searchText)
                                     SearchableSettingView(setting: $playgroundController.settings.embeddedViewDisplaysMandateText, searchText: $searchText)
                                     SearchableSettingView(setting: $playgroundController.settings.rowSelectionBehavior, searchText: $searchText)
+                                }
+                            }
+                        }
+
+                        if playgroundController.settings.integrationType == .checkoutSession {
+                            if searchText.isEmpty {
+                                Divider()
+                            }
+                            Group {
+                                SearchableSection(
+                                    title: "Checkout Session",
+                                    searchText: $searchText
+                                ) {
+                                    SearchableSettingView(
+                                        setting: paymentMethodSaveBinding,
+                                        title: "Offer Save",
+                                        searchText: $searchText
+                                    )
+                                    SearchableSettingView(
+                                        setting: $playgroundController.settings.paymentMethodRemove,
+                                        title: "Offer Remove Payment Method",
+                                        searchText: $searchText
+                                    )
+                                    if playgroundController.settings.mode != .setup {
+                                        SearchableView(
+                                            searchableName: "Checkout Session PMO Setup Future Usage",
+                                            searchText: $searchText
+                                        ) {
+                                            HStack {
+                                                Text("PMO Setup Future Usage")
+                                                    .font(.subheadline)
+                                                Spacer()
+                                                Button {
+                                                    playgroundController.paymentMethodOptionsSetupFutureUsageSettingsTapped()
+                                                } label: {
+                                                    Text("PMO SFU")
+                                                        .font(.callout.smallCaps())
+                                                }
+                                                .buttonStyle(.bordered)
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -730,11 +774,12 @@ struct AttestationResetButtonView: View {
 
 struct SettingView<S: PickerEnum>: View {
     var setting: Binding<S>
+    var title: String?
 
     var body: some View {
         HStack {
-            Text(S.enumName).font(.subheadline)
-            Picker(S.enumName, selection: setting) {
+            Text(title ?? S.enumName).font(.subheadline)
+            Picker(title ?? S.enumName, selection: setting) {
                 ForEach(S.allCases, id: \.self) { t in
                     Text(t.displayName)
                 }
