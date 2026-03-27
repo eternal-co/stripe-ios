@@ -22,11 +22,23 @@ import UIKit
       compatibleWith traitCollection: UITraitCollection? = nil
     ) -> UIImage? {
 
+      // 1. Try the designated resources bundle
       var image = UIImage(
         named: imageName, in: BundleLocator.resourcesBundle, compatibleWith: traitCollection)
 
+      // 2. Try the main bundle
       if image == nil {
           image = UIImage(named: imageName, in: nil, compatibleWith: traitCollection)
+      }
+
+      // 3. Search all loaded bundles as a fallback (workaround for SPM resource bundle issues)
+      if image == nil {
+          for bundle in Bundle.allBundles {
+              if let found = UIImage(named: imageName, in: bundle, compatibleWith: traitCollection) {
+                  image = found
+                  break
+              }
+          }
       }
 
       if templateIfAvailable {

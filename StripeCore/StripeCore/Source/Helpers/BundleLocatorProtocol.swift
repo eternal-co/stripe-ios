@@ -62,6 +62,16 @@ extension BundleLocatorProtocol {
         }
 
         if ourBundle == nil {
+            // Search all bundles for the resource bundle (workaround for SPM nesting issues)
+            for bundle in Bundle.allBundles + Bundle.allFrameworks {
+                if let path = bundle.path(forResource: bundleName, ofType: "bundle") {
+                    ourBundle = Bundle(path: path)
+                    break
+                }
+            }
+        }
+
+        if ourBundle == nil {
             // This will be the same as mainBundle if not using a dynamic framework
             ourBundle = Bundle(for: internalClass)
         }
